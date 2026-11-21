@@ -21,6 +21,10 @@ else
   read -rp "  Base domain [recommended: ${BASE_DOMAIN}]: " in_domain
   BASE_DOMAIN="${in_domain:-${BASE_DOMAIN}}"
 
+  latest_okd=$(curl -fsSL --max-time 5 https://api.github.com/repos/okd-project/okd/releases/latest 2>/dev/null \
+    | jq -r '.tag_name // empty' 2>/dev/null || true)
+  [[ -n "${latest_okd}" ]] && OKD_VERSION="${latest_okd}"
+
   read -rp "  OKD version [recommended: ${OKD_VERSION}]: " in_okd
   OKD_VERSION="${in_okd:-${OKD_VERSION}}"
 

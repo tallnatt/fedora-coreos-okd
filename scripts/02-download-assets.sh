@@ -11,15 +11,22 @@ sudo mkdir -p "${LIBVIRT_POOL_DIR}"
 # 1. Download openshift-install and oc if missing
 if ! command -v openshift-install >/dev/null 2>&1 || ! command -v oc >/dev/null 2>&1; then
   info "Downloading OKD ${OKD_VERSION} installer and client tools..."
-  INST_TGZ="${WORK_DIR}/downloads/openshift-install-linux-${OKD_VERSION}.tar.gz"
-  CLI_TGZ="${WORK_DIR}/downloads/openshift-client-linux-${OKD_VERSION}.tar.gz"
+  case "${ARCH}" in
+    x86_64|amd64) OKD_ARCH_SUFFIX="" ;;
+    aarch64|arm64) OKD_ARCH_SUFFIX="-arm64" ;;
+    *) OKD_ARCH_SUFFIX="-${ARCH}" ;;
+  esac
+  INST_TGZ="${WORK_DIR}/downloads/openshift-install-linux${OKD_ARCH_SUFFIX}-${OKD_VERSION}.tar.gz"
+  CLI_TGZ="${WORK_DIR}/downloads/openshift-client-linux${OKD_ARCH_SUFFIX}-${OKD_VERSION}.tar.gz"
   BASE_URL="https://github.com/okd-project/okd/releases/download/${OKD_VERSION}"
 
   if [[ ! -f "${INST_TGZ}" ]]; then
-    curl -fSL "${BASE_URL}/openshift-install-linux-${OKD_VERSION}.tar.gz" -o "${INST_TGZ}"
+    curl -fSL "${BASE_URL}/openshift-install-linux${OKD_ARCH_SUFFIX}-${OKD_VERSION}.tar.gz" -o "${INST_TGZ}" \
+      || die "Failed to download openshift-install for OKD '${OKD_VERSION}'. Verify the tag at https://github.com/okd-project/okd/releases"
   fi
   if [[ ! -f "${CLI_TGZ}" ]]; then
-    curl -fSL "${BASE_URL}/openshift-client-linux-${OKD_VERSION}.tar.gz" -o "${CLI_TGZ}"
+    curl -fSL "${BASE_URL}/openshift-client-linux${OKD_ARCH_SUFFIX}-${OKD_VERSION}.tar.gz" -o "${CLI_TGZ}" \
+      || die "Failed to download oc client for OKD '${OKD_VERSION}'. Verify the tag at https://github.com/okd-project/okd/releases"
   fi
 
   tar -xzf "${INST_TGZ}" -C "${BIN_DIR}" openshift-install
