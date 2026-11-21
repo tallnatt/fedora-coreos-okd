@@ -75,13 +75,52 @@ else
       2)
         NETWORK_MODE="bridge"
         echo ""
-        echo "--- Host Bridge Settings (Enter for recommended) ---"
+        echo "--- Host Bridge Settings ---"
+        BRIDGES=()
         if command -v ip >/dev/null 2>&1; then
-          bridges=$(ip -o link show type bridge 2>/dev/null | awk -F': ' '{print $2}' | tr '\n' ' ' || true)
-          [[ -n "${bridges}" ]] && echo "  Detected host bridges: ${bridges}"
+          mapfile -t BRIDGES < <(ip -o link show type bridge 2>/dev/null | awk -F': ' '{print $2}' | cut -d@ -f1 || true)
+        elif ls -d /sys/class/net/*/bridge >/dev/null 2>&1; then
+          for bpath in /sys/class/net/*/bridge; do
+            BRIDGES+=("$(basename "$(dirname "${bpath}")")")
+          done
         fi
-        read -rp "  Host bridge interface name [recommended: ${HOST_BRIDGE}]: " br_in
-        HOST_BRIDGE="${br_in:-${HOST_BRIDGE}}"
+
+        if (( ${#BRIDGES[@]} > 0 )); then
+          echo "  Select a host bridge interface:"
+          b_idx=1
+          for br in "${BRIDGES[@]}"; do
+            br_ip=$(ip -4 addr show dev "${br}" 2>/dev/null | awk '/inet / {print $2}' | head -n1 || true)
+            echo "    ${b_idx}) ${br}${br_ip:+ (${br_ip})}"
+            ((b_idx++))
+          done
+          manual_idx="${b_idx}"
+          echo "    ${manual_idx}) Enter interface name manually"
+
+          while true; do
+            read -rp "  Select bridge [1-${manual_idx}] (default: 1): " br_choice
+            br_choice="${br_choice:-1}"
+            if [[ "${br_choice}" =~ ^[0-9]+$ ]] && (( br_choice >= 1 && br_choice < manual_idx )); then
+              HOST_BRIDGE="${BRIDGES[$((br_choice - 1))]}"
+              break
+            elif [[ "${br_choice}" == "${manual_idx}" ]]; then
+              read -rp "  Host bridge interface name: " br_in
+              [[ -n "${br_in}" ]] || { echo "  Bridge name cannot be empty."; continue; }
+              HOST_BRIDGE="${br_in}"
+              break
+            else
+              echo "  Please enter a number between 1 and ${manual_idx}."
+            fi
+          done
+        else
+          warn "No host bridge interfaces were detected on this system."
+          while true; do
+            read -rp "  Enter host bridge interface name (or Ctrl+C to abort): " br_in
+            if [[ -n "${br_in}" ]]; then
+              HOST_BRIDGE="${br_in}"
+              break
+            fi
+          done
+        fi
 
         read -rp "  Node MAC prefix [recommended: ${MAC_PREFIX}]: " in_macp
         MAC_PREFIX="${in_macp:-${MAC_PREFIX}}"
