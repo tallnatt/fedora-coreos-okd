@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 SCRIPTS_DIR := $(CURDIR)/scripts
 
-.PHONY: help check-deps select-topology configure-nodes select-network download network ignition overlays vms finish install status destroy
+.PHONY: help configure-cluster check-deps select-topology select-network configure-nodes download network ignition overlays vms finish install status destroy
 
 help: ## Show available targets
 	@echo "OKD on Fedora CoreOS (libvirt) Automation"
@@ -12,17 +12,20 @@ help: ## Show available targets
 	@echo ""
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-check-deps: ## Verify required host tools (virsh, virt-install, qemu-img, butane, openshift-install, oc, haproxy)
+configure-cluster: ## Prompt for cluster name, domain, OKD/FCOS versions, SSH key, and libvirt paths
+	@$(SCRIPTS_DIR)/00-configure-cluster.sh
+
+check-deps: ## Verify required host tools (and prompt to install missing OS packages)
 	@$(SCRIPTS_DIR)/01-check-deps.sh
 
 select-topology: ## Prompt for cluster topology (standard, compact, or sno)
 	@$(SCRIPTS_DIR)/00-select-topology.sh
 
+select-network: ## Prompt for networking mode (nat or bridge) and required network settings
+	@$(SCRIPTS_DIR)/00-select-network.sh
+
 configure-nodes: ## Prompt for VM name, overlay file, disk, vCPU, and memory per node (with recommended defaults)
 	@$(SCRIPTS_DIR)/00-configure-nodes.sh
-
-select-network: ## Prompt for networking mode (nat or bridge)
-	@$(SCRIPTS_DIR)/00-select-network.sh
 
 download: ## Download Fedora CoreOS base image (and OKD tools if missing)
 	@$(SCRIPTS_DIR)/02-download-assets.sh
@@ -42,7 +45,7 @@ vms: ## Provision and boot Fedora CoreOS VMs in libvirt
 finish: ## Wait for bootstrap, destroy bootstrap VM, approve CSRs, and wait for install-complete
 	@$(SCRIPTS_DIR)/07-finish-install.sh
 
-install: check-deps select-topology configure-nodes select-network download network ignition overlays vms finish ## Run the full end-to-end OKD installation
+install: configure-cluster check-deps select-topology select-network configure-nodes download network ignition overlays vms finish ## Run the full end-to-end OKD installation
 
 status: ## Show libvirt VM status and OKD cluster node/operator status
 	@virsh --connect "$${LIBVIRT_URI:-qemu:///system}" list --all

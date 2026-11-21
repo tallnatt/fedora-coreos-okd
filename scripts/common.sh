@@ -22,7 +22,11 @@ if [[ -f "${ROOT_DIR}/cluster.env" ]]; then
   source "${ROOT_DIR}/cluster.env"
 fi
 
-# Load saved topology & network selections if present
+# Load saved cluster, topology, and network selections if present
+if [[ -f "${WORK_DIR}/.cluster.env" ]]; then
+  # shellcheck source=/dev/null
+  source "${WORK_DIR}/.cluster.env"
+fi
 if [[ -f "${WORK_DIR}/.topology.env" ]]; then
   # shellcheck source=/dev/null
   source "${WORK_DIR}/.topology.env"
@@ -80,7 +84,7 @@ get_default_nodes() {
   local name vm overlay
   if [[ "${TOPOLOGY}" == "sno" ]]; then
     name="sno-0"
-    vm="${CLUSTER_NAME}-${name}"
+    vm="${CLUSTER_NAME}"
     overlay="${LIBVIRT_POOL_DIR}/${vm}.qcow2"
     echo "${name} sno ${IP_PREFIX}.11 ${MAC_PREFIX}:11 ${vm} ${overlay} ${SNO_VCPU} ${SNO_RAM_MB} ${SNO_DISK_GB}"
     return
