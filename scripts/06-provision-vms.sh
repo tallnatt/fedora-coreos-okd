@@ -47,7 +47,7 @@ while read -r name role ip mac domain overlay vcpu ram_mb disk_gb; do
       --boot hd,cdrom \
       --network "${NET_ARG_BASE},mac=${mac},model=virtio" \
       --os-variant "${OS_VARIANT}" \
-      --graphics none \
+      --graphics vnc,listen=0.0.0.0 \
       --console pty,target_type=serial \
       --noautoconsole
   else
@@ -61,7 +61,7 @@ while read -r name role ip mac domain overlay vcpu ram_mb disk_gb; do
       --network "${NET_ARG_BASE},mac=${mac},model=virtio" \
       --os-variant "${OS_VARIANT}" \
       --import \
-      --graphics none \
+      --graphics vnc,listen=0.0.0.0 \
       --console pty,target_type=serial \
       --qemu-commandline="-fw_cfg name=opt/com.coreos/config,file=${ign_path}" \
       --noautoconsole
