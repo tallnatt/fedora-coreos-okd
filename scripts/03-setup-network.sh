@@ -180,19 +180,38 @@ EOF
   ok "HAProxy configured and running on ${HAPROXY_BIND_IP}."
 fi
 
-# Open firewalld ports if firewalld is active
-if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
-  info "Configuring firewalld rules for libvirt zone..."
+# Open firewalld ports only when host services (dnsmasq in NAT mode or HAProxy) are listening
+FW_ZONE=""
+FW_PORTS=()
+if [[ "${NETWORK_MODE}" == "nat" ]]; then
+  FW_ZONE="libvirt"
+  FW_PORTS=(53/udp 53/tcp)
+  if [[ "${TOPOLOGY}" != "sno" ]]; then
+    FW_PORTS+=(6443/tcp 22623/tcp 80/tcp 443/tcp)
+  fi
+elif [[ "${TOPOLOGY}" != "sno" && "${USE_HAPROXY:-false}" == "true" ]]; then
+  if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
+    FW_ZONE=$(sudo firewall-cmd --get-zone-of-interface="${HOST_BRIDGE}" 2>/dev/null || true)
+    [[ -z "${FW_ZONE}" ]] && FW_ZONE=$(sudo firewall-cmd --get-default-zone 2>/dev/null || echo "public")
+  fi
+  FW_PORTS=(6443/tcp 22623/tcp 80/tcp 443/tcp)
+fi
+
+if (( ${#FW_PORTS[@]} > 0 )) && command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
+  info "Configuring firewalld rules in zone '${FW_ZONE}' (${FW_PORTS[*]})..."
   ADDED_PORTS=()
-  for port in 6443/tcp 22623/tcp 80/tcp 443/tcp 53/udp 53/tcp; do
-    if ! sudo firewall-cmd --zone=libvirt --query-port="${port}" >/dev/null 2>&1; then
-      if sudo firewall-cmd --zone=libvirt --add-port="${port}" --permanent >/dev/null 2>&1; then
+  for port in "${FW_PORTS[@]}"; do
+    if ! sudo firewall-cmd --zone="${FW_ZONE}" --query-port="${port}" >/dev/null 2>&1; then
+      if sudo firewall-cmd --zone="${FW_ZONE}" --add-port="${port}" --permanent >/dev/null 2>&1; then
         ADDED_PORTS+=("${port}")
       fi
     fi
   done
   if (( ${#ADDED_PORTS[@]} > 0 )); then
-    echo "FIREWALLD_ADDED_PORTS=\"${ADDED_PORTS[*]}\"" >> "${WORK_DIR}/.rollback.env"
+    {
+      echo "FIREWALLD_ZONE=\"${FW_ZONE}\""
+      echo "FIREWALLD_ADDED_PORTS=\"${ADDED_PORTS[*]}\""
+    } >> "${WORK_DIR}/.rollback.env"
     sudo firewall-cmd --reload >/dev/null 2>&1 || true
   fi
 fi

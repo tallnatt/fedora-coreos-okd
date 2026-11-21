@@ -89,9 +89,10 @@ fi
 
 # 6. Restore firewalld rules added during install
 if [[ -n "${FIREWALLD_ADDED_PORTS:-}" ]] && command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
-  info "Removing firewalld ports added during install (${FIREWALLD_ADDED_PORTS})..."
+  fw_zone="${FIREWALLD_ZONE:-libvirt}"
+  info "Removing firewalld ports added during install from zone '${fw_zone}' (${FIREWALLD_ADDED_PORTS})..."
   for port in ${FIREWALLD_ADDED_PORTS}; do
-    sudo firewall-cmd --zone=libvirt --remove-port="${port}" --permanent >/dev/null 2>&1 || true
+    sudo firewall-cmd --zone="${fw_zone}" --remove-port="${port}" --permanent >/dev/null 2>&1 || true
   done
   sudo firewall-cmd --reload >/dev/null 2>&1 || true
 fi
