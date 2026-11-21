@@ -83,7 +83,7 @@ else
 fi
 
 info "Generating per-node Butane configs and compiling Ignition files..."
-while read -r name role ip mac vcpu ram_mb disk_gb; do
+while read -r name role ip mac vm_name overlay_path vcpu ram_mb disk_gb; do
   case "${role}" in
     bootstrap) base_ign="bootstrap.ign" ;;
     master)    base_ign="master.ign" ;;

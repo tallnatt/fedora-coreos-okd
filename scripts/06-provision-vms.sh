@@ -22,9 +22,7 @@ fi
 
 info "Provisioning libvirt VMs (os-variant=${OS_VARIANT}, network=${NET_ARG_BASE})..."
 
-while read -r name role ip mac vcpu ram_mb disk_gb; do
-  domain="$(vm_name "${name}")"
-  overlay="${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}-${name}.qcow2"
+while read -r name role ip mac domain overlay vcpu ram_mb disk_gb; do
   ign_path="${LIBVIRT_POOL_DIR}/ignition/${name}.ign"
 
   [[ -f "${overlay}" ]] || die "Overlay not found: ${overlay}. Run 'make overlays' first."

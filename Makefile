@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 SCRIPTS_DIR := $(CURDIR)/scripts
 
-.PHONY: help check-deps select-topology select-network download network ignition overlays vms finish install status destroy
+.PHONY: help check-deps select-topology configure-nodes select-network download network ignition overlays vms finish install status destroy
 
 help: ## Show available targets
 	@echo "OKD on Fedora CoreOS (libvirt) Automation"
@@ -17,6 +17,9 @@ check-deps: ## Verify required host tools (virsh, virt-install, qemu-img, butane
 
 select-topology: ## Prompt for cluster topology (standard, compact, or sno)
 	@$(SCRIPTS_DIR)/00-select-topology.sh
+
+configure-nodes: ## Prompt for VM name, overlay file, disk, vCPU, and memory per node (with recommended defaults)
+	@$(SCRIPTS_DIR)/00-configure-nodes.sh
 
 select-network: ## Prompt for networking mode (nat or bridge)
 	@$(SCRIPTS_DIR)/00-select-network.sh
@@ -39,7 +42,7 @@ vms: ## Provision and boot Fedora CoreOS VMs in libvirt
 finish: ## Wait for bootstrap, destroy bootstrap VM, approve CSRs, and wait for install-complete
 	@$(SCRIPTS_DIR)/07-finish-install.sh
 
-install: check-deps select-topology select-network download network ignition overlays vms finish ## Run the full end-to-end OKD installation
+install: check-deps select-topology configure-nodes select-network download network ignition overlays vms finish ## Run the full end-to-end OKD installation
 
 status: ## Show libvirt VM status and OKD cluster node/operator status
 	@virsh --connect "$${LIBVIRT_URI:-qemu:///system}" list --all

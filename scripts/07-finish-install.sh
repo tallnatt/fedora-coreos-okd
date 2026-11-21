@@ -21,12 +21,15 @@ if [[ "${TOPOLOGY}" != "sno" ]]; then
   openshift-install wait-for bootstrap-complete --dir="${OKD_DIR}" --log-level=info
   ok "Bootstrap complete!"
 
-  BOOTSTRAP_VM="$(vm_name "bootstrap")"
+  BOOTSTRAP_VM="$(get_nodes | awk '$1 == "bootstrap" {print $5}')"
+  BOOTSTRAP_OVERLAY="$(get_nodes | awk '$1 == "bootstrap" {print $6}')"
+  BOOTSTRAP_VM="${BOOTSTRAP_VM:-$(vm_name "bootstrap")}"
+  BOOTSTRAP_OVERLAY="${BOOTSTRAP_OVERLAY:-${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}-bootstrap.qcow2}"
   if virsh --connect "${LIBVIRT_URI}" dominfo "${BOOTSTRAP_VM}" >/dev/null 2>&1; then
     info "Removing temporary bootstrap VM '${BOOTSTRAP_VM}'..."
     virsh --connect "${LIBVIRT_URI}" destroy "${BOOTSTRAP_VM}" >/dev/null 2>&1 || true
     virsh --connect "${LIBVIRT_URI}" undefine "${BOOTSTRAP_VM}" >/dev/null 2>&1 || true
-    sudo rm -f "${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}-bootstrap.qcow2"
+    sudo rm -f "${BOOTSTRAP_OVERLAY}"
     ok "Bootstrap VM and overlay removed."
   fi
 

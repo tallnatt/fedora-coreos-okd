@@ -6,7 +6,20 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 info "Destroying OKD cluster '${CLUSTER_NAME}' resources..."
 
-# Destroy and undefine all matching VMs
+# Destroy and undefine VMs listed in nodes.tsv (handles custom VM names/overlays)
+if [[ -f "${WORK_DIR}/nodes.tsv" ]]; then
+  while read -r name role ip mac domain overlay_path vcpu ram_mb disk_gb; do
+    if virsh --connect "${LIBVIRT_URI}" dominfo "${domain}" >/dev/null 2>&1; then
+      info "Removing VM '${domain}'..."
+      virsh --connect "${LIBVIRT_URI}" destroy "${domain}" >/dev/null 2>&1 || true
+      virsh --connect "${LIBVIRT_URI}" undefine "${domain}" --remove-all-storage >/dev/null 2>&1 || \
+        virsh --connect "${LIBVIRT_URI}" undefine "${domain}" >/dev/null 2>&1 || true
+    fi
+    [[ -n "${overlay_path}" && -f "${overlay_path}" ]] && sudo rm -f "${overlay_path}"
+  done < "${WORK_DIR}/nodes.tsv"
+fi
+
+# Fallback: destroy any remaining VMs matching cluster prefix
 while read -r domain; do
   [[ -z "${domain}" ]] && continue
   info "Removing VM '${domain}'..."

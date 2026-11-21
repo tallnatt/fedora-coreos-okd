@@ -5,6 +5,7 @@ Automated installation of an **OKD** Kubernetes cluster on **Fedora CoreOS (FCOS
 ## Features
 
 - **Interactive topology selection** (`standard`, `compact`, or `sno`), or non-interactive via `TOPOLOGY=...`
+- **Interactive VM & resource configuration** (VM name, `qcow2` overlay path, disk GB, vCPU, and memory per node with recommended defaults)
 - **Interactive networking selection** (`nat` with libvirt `dnsmasq` + host `haproxy`, or `bridge` to attach to an existing host bridge), or non-interactive via `NETWORK_MODE=...`
 - **qcow2 copy-on-write overlays** per VM backed by a single Fedora CoreOS base image (`fcos-base.qcow2`)
 - **Butane-compiled Ignition configs** per node (merges OKD's `bootstrap.ign` / `master.ign` / `worker.ign` / `bootstrap-in-place-for-live-iso.ign` and sets per-node hostname/customizations)

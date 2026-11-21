@@ -65,23 +65,42 @@ require_network_mode() {
 }
 
 # Prints node records for the selected topology:
-#   <name> <role> <ip> <mac> <vcpu> <ram_mb> <disk_gb>
+#   <name> <role> <ip> <mac> <vm_name> <overlay_path> <vcpu> <ram_mb> <disk_gb>
 get_nodes() {
   require_topology
+  if [[ -f "${WORK_DIR}/nodes.tsv" ]]; then
+    cat "${WORK_DIR}/nodes.tsv"
+    return
+  fi
+  get_default_nodes
+}
+
+get_default_nodes() {
+  require_topology
+  local name vm overlay
   if [[ "${TOPOLOGY}" == "sno" ]]; then
-    echo "sno-0 sno ${IP_PREFIX}.11 ${MAC_PREFIX}:11 ${SNO_VCPU} ${SNO_RAM_MB} ${SNO_DISK_GB}"
+    name="sno-0"
+    vm="${CLUSTER_NAME}-${name}"
+    overlay="${LIBVIRT_POOL_DIR}/${vm}.qcow2"
+    echo "${name} sno ${IP_PREFIX}.11 ${MAC_PREFIX}:11 ${vm} ${overlay} ${SNO_VCPU} ${SNO_RAM_MB} ${SNO_DISK_GB}"
     return
   fi
 
   # Bootstrap node (temporary)
-  echo "bootstrap bootstrap ${IP_PREFIX}.10 ${MAC_PREFIX}:10 ${BOOTSTRAP_VCPU} ${BOOTSTRAP_RAM_MB} ${BOOTSTRAP_DISK_GB}"
+  name="bootstrap"
+  vm="${CLUSTER_NAME}-${name}"
+  overlay="${LIBVIRT_POOL_DIR}/${vm}.qcow2"
+  echo "${name} bootstrap ${IP_PREFIX}.10 ${MAC_PREFIX}:10 ${vm} ${overlay} ${BOOTSTRAP_VCPU} ${BOOTSTRAP_RAM_MB} ${BOOTSTRAP_DISK_GB}"
 
   # Control-plane nodes
   local i octet hex_octet
   for ((i = 0; i < MASTER_COUNT; i++)); do
     octet=$((11 + i))
     printf -v hex_octet "%02x" "${octet}"
-    echo "master-${i} master ${IP_PREFIX}.${octet} ${MAC_PREFIX}:${hex_octet} ${MASTER_VCPU} ${MASTER_RAM_MB} ${MASTER_DISK_GB}"
+    name="master-${i}"
+    vm="${CLUSTER_NAME}-${name}"
+    overlay="${LIBVIRT_POOL_DIR}/${vm}.qcow2"
+    echo "${name} master ${IP_PREFIX}.${octet} ${MAC_PREFIX}:${hex_octet} ${vm} ${overlay} ${MASTER_VCPU} ${MASTER_RAM_MB} ${MASTER_DISK_GB}"
   done
 
   # Worker nodes (if standard topology)
@@ -89,7 +108,10 @@ get_nodes() {
     for ((i = 0; i < WORKER_COUNT; i++)); do
       octet=$((21 + i))
       printf -v hex_octet "%02x" "${octet}"
-      echo "worker-${i} worker ${IP_PREFIX}.${octet} ${MAC_PREFIX}:${hex_octet} ${WORKER_VCPU} ${WORKER_RAM_MB} ${WORKER_DISK_GB}"
+      name="worker-${i}"
+      vm="${CLUSTER_NAME}-${name}"
+      overlay="${LIBVIRT_POOL_DIR}/${vm}.qcow2"
+      echo "${name} worker ${IP_PREFIX}.${octet} ${MAC_PREFIX}:${hex_octet} ${vm} ${overlay} ${WORKER_VCPU} ${WORKER_RAM_MB} ${WORKER_DISK_GB}"
     done
   fi
 }

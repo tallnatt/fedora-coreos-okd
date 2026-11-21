@@ -18,7 +18,7 @@ info "Generating libvirt network XML (${NET_NAME})..."
 # Build DNS host entries and DHCP static reservations from topology nodes
 DNS_HOSTS_XML=""
 DHCP_HOSTS_XML=""
-while read -r name role ip mac vcpu ram_mb disk_gb; do
+while read -r name role ip mac vm_name overlay_path vcpu ram_mb disk_gb; do
   DNS_HOSTS_XML+="    <host ip='${ip}'>
       <hostname>${name}.${CLUSTER_NAME}.${BASE_DOMAIN}</hostname>
       <hostname>${name}</hostname>
@@ -88,7 +88,7 @@ if [[ "${TOPOLOGY}" != "sno" ]]; then
   INGRESS_HTTP_SERVERS=""
   INGRESS_HTTPS_SERVERS=""
 
-  while read -r name role ip mac vcpu ram_mb disk_gb; do
+  while read -r name role ip mac vm_name overlay_path vcpu ram_mb disk_gb; do
     if [[ "${role}" == "bootstrap" || "${role}" == "master" ]]; then
       API_SERVERS+="    server ${name} ${ip}:6443 check
 "

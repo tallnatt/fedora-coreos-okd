@@ -10,16 +10,16 @@ BASE_QCOW2="${LIBVIRT_POOL_DIR}/fcos-base.qcow2"
 
 info "Creating qcow2 copy-on-write overlays backed by ${BASE_QCOW2}..."
 
-while read -r name role ip mac vcpu ram_mb disk_gb; do
-  overlay="${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}-${name}.qcow2"
-  if [[ -f "${overlay}" ]]; then
-    warn "Overlay ${overlay} already exists; recreating..."
-    sudo rm -f "${overlay}"
+while read -r name role ip mac vm_name overlay_path vcpu ram_mb disk_gb; do
+  sudo mkdir -p "$(dirname "${overlay_path}")"
+  if [[ -f "${overlay_path}" ]]; then
+    warn "Overlay ${overlay_path} already exists; recreating..."
+    sudo rm -f "${overlay_path}"
   fi
 
-  sudo qemu-img create -f qcow2 -F qcow2 -b "${BASE_QCOW2}" "${overlay}" "${disk_gb}G" >/dev/null
-  sudo chmod 0644 "${overlay}"
-  ok "Created overlay ${overlay} (${disk_gb}G, backing=${BASE_QCOW2})"
+  sudo qemu-img create -f qcow2 -F qcow2 -b "${BASE_QCOW2}" "${overlay_path}" "${disk_gb}G" >/dev/null
+  sudo chmod 0644 "${overlay_path}"
+  ok "Created overlay ${overlay_path} (${disk_gb}G, backing=${BASE_QCOW2})"
 done < <(get_nodes)
 
 if command -v restorecon >/dev/null 2>&1; then
