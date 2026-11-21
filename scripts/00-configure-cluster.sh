@@ -41,9 +41,69 @@ else
   read -rp "  Libvirt URI [recommended: ${LIBVIRT_URI}]: " in_uri
   LIBVIRT_URI="${in_uri:-${LIBVIRT_URI}}"
 
-  def_pool="/var/lib/libvirt/images/${CLUSTER_NAME}"
-  read -rp "  Libvirt image/overlay directory [recommended: ${def_pool}]: " in_pool
-  LIBVIRT_POOL_DIR="${in_pool:-${def_pool}}"
+  discover_libvirt_pools() {
+    local xml pool_name pool_path
+    # 1. Inspect libvirt storage pool XML configs in /etc/libvirt/storage/
+    if [[ -d /etc/libvirt/storage ]]; then
+      for xml in /etc/libvirt/storage/*.xml; do
+        [[ -r "${xml}" ]] || continue
+        pool_name=$(sed -n 's:.*<name>\(.*\)</name>.*:\1:p' "${xml}" | head -n1)
+        pool_path=$(sed -n '/<target>/,/<\/target>/s:.*<path>\(.*\)</path>.*:\1:p' "${xml}" | head -n1)
+        if [[ -n "${pool_name}" && -n "${pool_path}" ]]; then
+          echo "${pool_name}|${pool_path}"
+        fi
+      done
+    fi
+
+    # 2. Fallback to virsh if /etc/libvirt/storage had no readable dir-backed pools
+    if command -v virsh >/dev/null 2>&1; then
+      while read -r pool_name; do
+        [[ -z "${pool_name}" ]] && continue
+        pool_path=$(virsh --connect "${LIBVIRT_URI}" pool-dumpxml "${pool_name}" 2>/dev/null \
+          | sed -n '/<target>/,/<\/target>/s:.*<path>\(.*\)</path>.*:\1:p' | head -n1 || true)
+        if [[ -n "${pool_path}" ]]; then
+          echo "${pool_name}|${pool_path}"
+        fi
+      done < <(virsh --connect "${LIBVIRT_URI}" pool-list --all --name 2>/dev/null || true)
+    fi
+  }
+
+  mapfile -t DISCOVERED_POOLS < <(discover_libvirt_pools | awk -F'|' '!seen[$1]++')
+
+  echo ""
+  echo "  Libvirt storage pool / image directory:"
+  if (( ${#DISCOVERED_POOLS[@]} > 0 )); then
+    idx=1
+    for entry in "${DISCOVERED_POOLS[@]}"; do
+      p_name="${entry%%|*}"
+      p_path="${entry#*|}"
+      echo "    ${idx}) Pool '${p_name}' (${p_path}/${CLUSTER_NAME})"
+      ((idx++))
+    done
+    custom_idx="${idx}"
+    echo "    ${custom_idx}) Custom directory path"
+
+    while true; do
+      read -rp "  Select pool/directory [1-${custom_idx}] (default: 1): " pool_choice
+      pool_choice="${pool_choice:-1}"
+      if [[ "${pool_choice}" =~ ^[0-9]+$ ]] && (( pool_choice >= 1 && pool_choice < custom_idx )); then
+        selected="${DISCOVERED_POOLS[$((pool_choice - 1))]}"
+        LIBVIRT_POOL_DIR="${selected#*|}/${CLUSTER_NAME}"
+        break
+      elif [[ "${pool_choice}" == "${custom_idx}" ]]; then
+        def_pool="/var/lib/libvirt/images/${CLUSTER_NAME}"
+        read -rp "  Custom image/overlay directory [recommended: ${def_pool}]: " in_pool
+        LIBVIRT_POOL_DIR="${in_pool:-${def_pool}}"
+        break
+      else
+        echo "  Please enter a number between 1 and ${custom_idx}."
+      fi
+    done
+  else
+    def_pool="/var/lib/libvirt/images/${CLUSTER_NAME}"
+    read -rp "  No existing pools detected. Image/overlay directory [recommended: ${def_pool}]: " in_pool
+    LIBVIRT_POOL_DIR="${in_pool:-${def_pool}}"
+  fi
 fi
 
 cat > "${WORK_DIR}/.cluster.env" <<EOF
