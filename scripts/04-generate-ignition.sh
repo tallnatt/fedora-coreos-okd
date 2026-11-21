@@ -122,7 +122,7 @@ done < <(get_nodes)
 if [[ "${TOPOLOGY}" == "sno" ]]; then
   SNO_ISO="${LIBVIRT_POOL_DIR}/fcos-sno.iso"
   info "Embedding Ignition config into SNO live ISO (${SNO_ISO})..."
-  sudo cp "${LIBVIRT_POOL_DIR}/fcos-live.iso" "${SNO_ISO}"
+  sudo cp "${LIBVIRT_MEDIA_DIR}/fcos-live.iso" "${SNO_ISO}"
   if command -v coreos-installer >/dev/null 2>&1; then
     sudo coreos-installer iso ignition embed -f -i "${POOL_IGN_DIR}/sno-0.ign" "${SNO_ISO}"
   elif command -v podman >/dev/null 2>&1; then

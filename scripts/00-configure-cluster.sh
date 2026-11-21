@@ -77,42 +77,47 @@ else
     fi
   }
 
+  select_pool_dir() {
+    local label="$1" subdir="$2" default_fallback="$3"
+    local idx=1 entry p_name p_path custom_idx choice selected in_dir
+
+    echo "" >&2
+    echo "  ${label}:" >&2
+    if (( ${#DISCOVERED_POOLS[@]} > 0 )); then
+      for entry in "${DISCOVERED_POOLS[@]}"; do
+        p_name="${entry%%|*}"
+        p_path="${entry#*|}"
+        echo "    ${idx}) Pool '${p_name}' (${p_path}/${subdir})" >&2
+        ((idx++))
+      done
+      custom_idx="${idx}"
+      echo "    ${custom_idx}) Custom directory path" >&2
+
+      while true; do
+        read -rp "  Select pool/directory [1-${custom_idx}] (default: 1): " choice
+        choice="${choice:-1}"
+        if [[ "${choice}" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < custom_idx )); then
+          selected="${DISCOVERED_POOLS[$((choice - 1))]}"
+          echo "${selected#*|}/${subdir}"
+          return
+        elif [[ "${choice}" == "${custom_idx}" ]]; then
+          read -rp "  Custom directory [recommended: ${default_fallback}]: " in_dir
+          echo "${in_dir:-${default_fallback}}"
+          return
+        else
+          echo "  Please enter a number between 1 and ${custom_idx}." >&2
+        fi
+      done
+    else
+      read -rp "  No existing pools detected. Directory [recommended: ${default_fallback}]: " in_dir
+      echo "${in_dir:-${default_fallback}}"
+    fi
+  }
+
   mapfile -t DISCOVERED_POOLS < <(discover_libvirt_pools | awk -F'|' '!seen[$1]++')
 
-  echo ""
-  echo "  Libvirt storage pool / image directory:"
-  if (( ${#DISCOVERED_POOLS[@]} > 0 )); then
-    idx=1
-    for entry in "${DISCOVERED_POOLS[@]}"; do
-      p_name="${entry%%|*}"
-      p_path="${entry#*|}"
-      echo "    ${idx}) Pool '${p_name}' (${p_path}/${CLUSTER_NAME})"
-      ((idx++))
-    done
-    custom_idx="${idx}"
-    echo "    ${custom_idx}) Custom directory path"
-
-    while true; do
-      read -rp "  Select pool/directory [1-${custom_idx}] (default: 1): " pool_choice
-      pool_choice="${pool_choice:-1}"
-      if [[ "${pool_choice}" =~ ^[0-9]+$ ]] && (( pool_choice >= 1 && pool_choice < custom_idx )); then
-        selected="${DISCOVERED_POOLS[$((pool_choice - 1))]}"
-        LIBVIRT_POOL_DIR="${selected#*|}/${CLUSTER_NAME}"
-        break
-      elif [[ "${pool_choice}" == "${custom_idx}" ]]; then
-        def_pool="/var/lib/libvirt/images/${CLUSTER_NAME}"
-        read -rp "  Custom image/overlay directory [recommended: ${def_pool}]: " in_pool
-        LIBVIRT_POOL_DIR="${in_pool:-${def_pool}}"
-        break
-      else
-        echo "  Please enter a number between 1 and ${custom_idx}."
-      fi
-    done
-  else
-    def_pool="/var/lib/libvirt/images/${CLUSTER_NAME}"
-    read -rp "  No existing pools detected. Image/overlay directory [recommended: ${def_pool}]: " in_pool
-    LIBVIRT_POOL_DIR="${in_pool:-${def_pool}}"
-  fi
+  LIBVIRT_POOL_DIR="$(select_pool_dir "Libvirt VM overlay pool / directory" "${CLUSTER_NAME}" "/var/lib/libvirt/images/${CLUSTER_NAME}")"
+  LIBVIRT_MEDIA_DIR="$(select_pool_dir "Libvirt shared media pool / directory (base FCOS image & ISOs)" "okd-media" "/var/lib/libvirt/images/okd-media")"
 fi
 
 cat > "${WORK_DIR}/.cluster.env" <<EOF
@@ -125,6 +130,7 @@ SSH_PUB_KEY_PATH="${SSH_PUB_KEY_PATH}"
 PULL_SECRET_PATH="${PULL_SECRET_PATH}"
 LIBVIRT_URI="${LIBVIRT_URI}"
 LIBVIRT_POOL_DIR="${LIBVIRT_POOL_DIR}"
+LIBVIRT_MEDIA_DIR="${LIBVIRT_MEDIA_DIR}"
 EOF
 
 ok "Cluster configuration saved to ${WORK_DIR}/.cluster.env (${CLUSTER_NAME}.${BASE_DOMAIN})"

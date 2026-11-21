@@ -44,7 +44,7 @@ info "Fetching Fedora CoreOS '${FCOS_STREAM}' stream metadata..."
 curl -fsSL "https://builds.coreos.fedoraproject.org/streams/${FCOS_STREAM}.json" -o "${STREAM_JSON}"
 
 # 4. Download and decompress FCOS base qcow2 image (used as backing file for node overlays)
-BASE_QCOW2="${LIBVIRT_POOL_DIR}/fcos-base.qcow2"
+BASE_QCOW2="${LIBVIRT_MEDIA_DIR}/fcos-base.qcow2"
 if [[ ! -f "${BASE_QCOW2}" ]]; then
   QCOW_URL=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"qcow2.xz\"].disk.location" "${STREAM_JSON}")
   QCOW_SHA=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"qcow2.xz\"].disk.sha256" "${STREAM_JSON}")
@@ -78,7 +78,7 @@ if [[ "${TOPOLOGY}" == "sno" ]]; then
     fi
   fi
 
-  LIVE_ISO="${LIBVIRT_POOL_DIR}/fcos-live.iso"
+  LIVE_ISO="${LIBVIRT_MEDIA_DIR}/fcos-live.iso"
   if [[ ! -f "${LIVE_ISO}" ]]; then
     ISO_URL=$(jq -r ".architectures.${ARCH}.artifacts.metal.formats.iso.disk.location" "${STREAM_JSON}")
     ISO_SHA=$(jq -r ".architectures.${ARCH}.artifacts.metal.formats.iso.disk.sha256" "${STREAM_JSON}")

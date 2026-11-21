@@ -47,10 +47,13 @@ if [[ -d "${LIBVIRT_POOL_DIR}" ]]; then
   info "Removing cluster storage artifacts in ${LIBVIRT_POOL_DIR}..."
   sudo rm -f "${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}-"*.qcow2 "${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}.qcow2" "${LIBVIRT_POOL_DIR}/fcos-sno.iso"
   sudo rm -rf "${LIBVIRT_POOL_DIR}/ignition"
-  if [[ "${CLEAN_BASE}" == "1" ]]; then
-    sudo rm -f "${LIBVIRT_POOL_DIR}/fcos-base.qcow2" "${LIBVIRT_POOL_DIR}/fcos-live.iso"
-    sudo rmdir "${LIBVIRT_POOL_DIR}" >/dev/null 2>&1 || true
-  fi
+  sudo rmdir "${LIBVIRT_POOL_DIR}" >/dev/null 2>&1 || true
+fi
+
+if [[ "${CLEAN_BASE}" == "1" && -d "${LIBVIRT_MEDIA_DIR}" ]]; then
+  info "Removing shared base FCOS media in ${LIBVIRT_MEDIA_DIR}..."
+  sudo rm -f "${LIBVIRT_MEDIA_DIR}/fcos-base.qcow2" "${LIBVIRT_MEDIA_DIR}/fcos-live.iso"
+  sudo rmdir "${LIBVIRT_MEDIA_DIR}" >/dev/null 2>&1 || true
 fi
 
 # 3. Destroy and undefine libvirt network

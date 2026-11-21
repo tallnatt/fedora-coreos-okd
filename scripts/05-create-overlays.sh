@@ -5,7 +5,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 require_topology
 
-BASE_QCOW2="${LIBVIRT_POOL_DIR}/fcos-base.qcow2"
+BASE_QCOW2="${LIBVIRT_MEDIA_DIR}/fcos-base.qcow2"
 [[ -f "${BASE_QCOW2}" ]] || die "Base FCOS image not found at ${BASE_QCOW2}. Run 'make download' first."
 
 info "Creating qcow2 copy-on-write overlays backed by ${BASE_QCOW2}..."
