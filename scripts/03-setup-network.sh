@@ -4,31 +4,34 @@ set -euo pipefail
 # shellcheck source=scripts/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 require_topology
+require_network_mode
 
 mkdir -p "${WORK_DIR}"
 
-if [[ "${TOPOLOGY}" == "sno" ]]; then
-  VIP_IP="${IP_PREFIX}.11"
-else
-  VIP_IP="${NET_GATEWAY}"
-fi
+if [[ "${NETWORK_MODE}" == "nat" ]]; then
+  if [[ "${TOPOLOGY}" == "sno" ]]; then
+    VIP_IP="${IP_PREFIX}.11"
+  else
+    VIP_IP="${NET_GATEWAY}"
+  fi
+  HAPROXY_BIND_IP="${NET_GATEWAY}"
 
-info "Generating libvirt network XML (${NET_NAME})..."
+  info "Generating libvirt network XML (${NET_NAME})..."
 
-# Build DNS host entries and DHCP static reservations from topology nodes
-DNS_HOSTS_XML=""
-DHCP_HOSTS_XML=""
-while read -r name role ip mac vm_name overlay_path vcpu ram_mb disk_gb; do
-  DNS_HOSTS_XML+="    <host ip='${ip}'>
+  # Build DNS host entries and DHCP static reservations from topology nodes
+  DNS_HOSTS_XML=""
+  DHCP_HOSTS_XML=""
+  while read -r name role ip mac vm_name overlay_path vcpu ram_mb disk_gb; do
+    DNS_HOSTS_XML+="    <host ip='${ip}'>
       <hostname>${name}.${CLUSTER_NAME}.${BASE_DOMAIN}</hostname>
       <hostname>${name}</hostname>
     </host>
 "
-  DHCP_HOSTS_XML+="      <host mac='${mac}' name='${name}' ip='${ip}'/>
+    DHCP_HOSTS_XML+="      <host mac='${mac}' name='${name}' ip='${ip}'/>
 "
-done < <(get_nodes)
+  done < <(get_nodes)
 
-cat > "${WORK_DIR}/network.xml" <<EOF
+  cat > "${WORK_DIR}/network.xml" <<EOF
 <network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'>
   <name>${NET_NAME}</name>
   <forward mode='nat'>
@@ -55,30 +58,35 @@ ${DHCP_HOSTS_XML}    </dhcp>
 </network>
 EOF
 
-# Recreate or start libvirt network
-if virsh --connect "${LIBVIRT_URI}" net-info "${NET_NAME}" >/dev/null 2>&1; then
-  info "Updating existing libvirt network '${NET_NAME}'..."
-  virsh --connect "${LIBVIRT_URI}" net-destroy "${NET_NAME}" >/dev/null 2>&1 || true
-  virsh --connect "${LIBVIRT_URI}" net-undefine "${NET_NAME}" >/dev/null 2>&1 || true
+  # Recreate or start libvirt network
+  if virsh --connect "${LIBVIRT_URI}" net-info "${NET_NAME}" >/dev/null 2>&1; then
+    info "Updating existing libvirt network '${NET_NAME}'..."
+    virsh --connect "${LIBVIRT_URI}" net-destroy "${NET_NAME}" >/dev/null 2>&1 || true
+    virsh --connect "${LIBVIRT_URI}" net-undefine "${NET_NAME}" >/dev/null 2>&1 || true
+  fi
+
+  virsh --connect "${LIBVIRT_URI}" net-define "${WORK_DIR}/network.xml"
+  virsh --connect "${LIBVIRT_URI}" net-autostart "${NET_NAME}"
+  virsh --connect "${LIBVIRT_URI}" net-start "${NET_NAME}"
+  ok "Libvirt network '${NET_NAME}' is active on bridge '${NET_BRIDGE}' (${NET_GATEWAY})."
+
+  # Ensure the libvirt host itself can resolve API & console URLs
+  info "Updating /etc/hosts for host-side API/console resolution..."
+  sudo sed -i "/# BEGIN OKD ${CLUSTER_NAME}/,/# END OKD ${CLUSTER_NAME}/d" /etc/hosts
+  {
+    echo "# BEGIN OKD ${CLUSTER_NAME}"
+    echo "${VIP_IP} api.${CLUSTER_NAME}.${BASE_DOMAIN} api-int.${CLUSTER_NAME}.${BASE_DOMAIN} console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN} oauth-openshift.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
+    echo "# END OKD ${CLUSTER_NAME}"
+  } | sudo tee -a /etc/hosts >/dev/null
+else
+  ip link show "${HOST_BRIDGE}" >/dev/null 2>&1 || die "Host bridge '${HOST_BRIDGE}' not found."
+  ok "Using existing host bridge '${HOST_BRIDGE}' (skipping libvirt NAT network and dnsmasq)."
 fi
 
-virsh --connect "${LIBVIRT_URI}" net-define "${WORK_DIR}/network.xml"
-virsh --connect "${LIBVIRT_URI}" net-autostart "${NET_NAME}"
-virsh --connect "${LIBVIRT_URI}" net-start "${NET_NAME}"
-ok "Libvirt network '${NET_NAME}' is active on bridge '${NET_BRIDGE}' (${NET_GATEWAY})."
-
-# Ensure the libvirt host itself can resolve API & console URLs
-info "Updating /etc/hosts for host-side API/console resolution..."
-sudo sed -i "/# BEGIN OKD ${CLUSTER_NAME}/,/# END OKD ${CLUSTER_NAME}/d" /etc/hosts
-{
-  echo "# BEGIN OKD ${CLUSTER_NAME}"
-  echo "${VIP_IP} api.${CLUSTER_NAME}.${BASE_DOMAIN} api-int.${CLUSTER_NAME}.${BASE_DOMAIN} console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN} oauth-openshift.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
-  echo "# END OKD ${CLUSTER_NAME}"
-} | sudo tee -a /etc/hosts >/dev/null
-
-# Configure HAProxy for multi-node topologies (Standard HA / Compact 3-node)
-if [[ "${TOPOLOGY}" != "sno" ]]; then
-  info "Configuring HAProxy on ${NET_GATEWAY} for API (6443), MCS (22623), and Ingress (80/443)..."
+# Configure HAProxy for multi-node topologies when enabled
+if [[ "${TOPOLOGY}" != "sno" && "${USE_HAPROXY:-false}" == "true" ]]; then
+  [[ -n "${HAPROXY_BIND_IP}" ]] || die "HAPROXY_BIND_IP is not set."
+  info "Configuring HAProxy on ${HAPROXY_BIND_IP} for API (6443), MCS (22623), and Ingress (80/443)..."
   if [[ -f /etc/haproxy/haproxy.cfg && ! -f /etc/haproxy/haproxy.cfg.pre-okd ]]; then
     sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.pre-okd
   fi
