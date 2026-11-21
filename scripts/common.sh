@@ -78,6 +78,15 @@ validate_ssh_pub_key() {
   grep -Eq '^(ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[[:space:]]+[A-Za-z0-9+/=]+' "${key_path}"
 }
 
+get_ssh_pub_key_fingerprint() {
+  local key_path="$1"
+  if command -v ssh-keygen >/dev/null 2>&1; then
+    ssh-keygen -l -f "${key_path}" 2>/dev/null | awk '{print $2 " " $NF}' | head -n1
+  else
+    awk '{print $1}' "${key_path}" | head -n1
+  fi
+}
+
 # Prints node records for the selected topology:
 #   <name> <role> <ip> <mac> <vm_name> <overlay_path> <vcpu> <ram_mb> <disk_gb>
 get_nodes() {

@@ -41,7 +41,7 @@ else
     candidate_ssh="${candidate_ssh/#\~/${HOME}}"
     if validate_ssh_pub_key "${candidate_ssh}"; then
       SSH_PUB_KEY_PATH="${candidate_ssh}"
-      ok "SSH public key is valid (${SSH_PUB_KEY_PATH})"
+      ok "SSH public key is valid ($(get_ssh_pub_key_fingerprint "${SSH_PUB_KEY_PATH}"))"
       break
     fi
     warn "Invalid or missing SSH public key at '${candidate_ssh}'."
