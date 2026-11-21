@@ -9,6 +9,10 @@ export PATH="${BIN_DIR}:${PATH}"
 # Preserve explicit environment overrides before sourcing config files
 _ENV_TOPOLOGY="${TOPOLOGY:-}"
 _ENV_WORKER_COUNT="${WORKER_COUNT:-}"
+_ENV_NETWORK_MODE="${NETWORK_MODE:-}"
+_ENV_HOST_BRIDGE="${HOST_BRIDGE:-}"
+_ENV_USE_HAPROXY="${USE_HAPROXY:-}"
+_ENV_HAPROXY_BIND_IP="${HAPROXY_BIND_IP:-}"
 
 # Load defaults, then user overrides
 # shellcheck source=/dev/null
@@ -18,15 +22,23 @@ if [[ -f "${ROOT_DIR}/cluster.env" ]]; then
   source "${ROOT_DIR}/cluster.env"
 fi
 
-# Load saved topology selection if present
+# Load saved topology & network selections if present
 if [[ -f "${WORK_DIR}/.topology.env" ]]; then
   # shellcheck source=/dev/null
   source "${WORK_DIR}/.topology.env"
+fi
+if [[ -f "${WORK_DIR}/.network.env" ]]; then
+  # shellcheck source=/dev/null
+  source "${WORK_DIR}/.network.env"
 fi
 
 # Restore explicit env overrides
 [[ -n "${_ENV_TOPOLOGY}" ]] && TOPOLOGY="${_ENV_TOPOLOGY}"
 [[ -n "${_ENV_WORKER_COUNT}" ]] && WORKER_COUNT="${_ENV_WORKER_COUNT}"
+[[ -n "${_ENV_NETWORK_MODE}" ]] && NETWORK_MODE="${_ENV_NETWORK_MODE}"
+[[ -n "${_ENV_HOST_BRIDGE}" ]] && HOST_BRIDGE="${_ENV_HOST_BRIDGE}"
+[[ -n "${_ENV_USE_HAPROXY}" ]] && USE_HAPROXY="${_ENV_USE_HAPROXY}"
+[[ -n "${_ENV_HAPROXY_BIND_IP}" ]] && HAPROXY_BIND_IP="${_ENV_HAPROXY_BIND_IP}"
 
 info()  { printf '\033[1;34m[INFO]\033[0m  %s\n' "$*"; }
 ok()    { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
@@ -39,6 +51,15 @@ require_topology() {
     standard|compact|sno) ;;
     *)
       die "TOPOLOGY is not set or invalid ('${TOPOLOGY:-}'). Run 'make select-topology' or set TOPOLOGY=standard|compact|sno."
+      ;;
+  esac
+}
+
+require_network_mode() {
+  case "${NETWORK_MODE:-}" in
+    nat|bridge) ;;
+    *)
+      die "NETWORK_MODE is not set or invalid ('${NETWORK_MODE:-}'). Run 'make select-network' or set NETWORK_MODE=nat|bridge."
       ;;
   esac
 }

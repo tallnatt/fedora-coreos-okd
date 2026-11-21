@@ -4,6 +4,13 @@ set -euo pipefail
 # shellcheck source=scripts/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 require_topology
+require_network_mode
+
+if [[ "${NETWORK_MODE}" == "bridge" ]]; then
+  NET_ARG_BASE="bridge=${HOST_BRIDGE}"
+else
+  NET_ARG_BASE="network=${NET_NAME}"
+fi
 
 # Pick best available os-variant
 OS_VARIANT="fedora-unknown"
@@ -13,7 +20,7 @@ if command -v osinfo-query >/dev/null 2>&1; then
   fi
 fi
 
-info "Provisioning libvirt VMs (os-variant=${OS_VARIANT})..."
+info "Provisioning libvirt VMs (os-variant=${OS_VARIANT}, network=${NET_ARG_BASE})..."
 
 while read -r name role ip mac vcpu ram_mb disk_gb; do
   domain="$(vm_name "${name}")"
@@ -40,7 +47,7 @@ while read -r name role ip mac vcpu ram_mb disk_gb; do
       --disk "path=${overlay},format=qcow2,bus=virtio" \
       --cdrom "${SNO_ISO}" \
       --boot hd,cdrom \
-      --network "network=${NET_NAME},mac=${mac},model=virtio" \
+      --network "${NET_ARG_BASE},mac=${mac},model=virtio" \
       --os-variant "${OS_VARIANT}" \
       --graphics none \
       --console pty,target_type=serial \
@@ -53,7 +60,7 @@ while read -r name role ip mac vcpu ram_mb disk_gb; do
       --vcpus "${vcpu}" \
       --memory "${ram_mb}" \
       --disk "path=${overlay},format=qcow2,bus=virtio" \
-      --network "network=${NET_NAME},mac=${mac},model=virtio" \
+      --network "${NET_ARG_BASE},mac=${mac},model=virtio" \
       --os-variant "${OS_VARIANT}" \
       --import \
       --graphics none \

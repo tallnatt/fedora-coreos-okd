@@ -121,28 +121,28 @@ defaults
     timeout server 60s
 
 frontend okd_api_fe
-    bind ${NET_GATEWAY}:6443
+    bind ${HAPROXY_BIND_IP}:6443
     default_backend okd_api_be
 
 backend okd_api_be
     balance roundrobin
 ${API_SERVERS}
 frontend okd_mcs_fe
-    bind ${NET_GATEWAY}:22623
+    bind ${HAPROXY_BIND_IP}:22623
     default_backend okd_mcs_be
 
 backend okd_mcs_be
     balance roundrobin
 ${MCS_SERVERS}
 frontend okd_ingress_http_fe
-    bind ${NET_GATEWAY}:80
+    bind ${HAPROXY_BIND_IP}:80
     default_backend okd_ingress_http_be
 
 backend okd_ingress_http_be
     balance roundrobin
 ${INGRESS_HTTP_SERVERS}
 frontend okd_ingress_https_fe
-    bind ${NET_GATEWAY}:443
+    bind ${HAPROXY_BIND_IP}:443
     default_backend okd_ingress_https_be
 
 backend okd_ingress_https_be
@@ -157,7 +157,7 @@ EOF
   fi
   sudo systemctl enable --now haproxy
   sudo systemctl restart haproxy
-  ok "HAProxy configured and running on ${NET_GATEWAY}."
+  ok "HAProxy configured and running on ${HAPROXY_BIND_IP}."
 fi
 
 # Open firewalld ports if firewalld is active
