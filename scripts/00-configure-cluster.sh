@@ -61,8 +61,9 @@ else
     if [[ -d /etc/libvirt/storage ]]; then
       for xml in /etc/libvirt/storage/*.xml; do
         [[ -r "${xml}" ]] || continue
-        pool_name=$(sed -n 's:.*<name>\(.*\)</name>.*:\1:p' "${xml}" | head -n1)
-        pool_path=$(sed -n '/<target>/,/<\/target>/s:.*<path>\(.*\)</path>.*:\1:p' "${xml}" | head -n1)
+        pool_name=$(sed -n 's:.*<name>\(.*\)</name>.*:\1:p' "${xml}" | head -n1 | xargs)
+        pool_path=$(sed -n '/<target>/,/<\/target>/s:.*<path>\(.*\)</path>.*:\1:p' "${xml}" | head -n1 | xargs)
+        pool_path="${pool_path%/}"
         if [[ -n "${pool_name}" && -n "${pool_path}" ]]; then
           echo "${pool_name}|${pool_path}"
         fi
@@ -74,7 +75,8 @@ else
       while read -r pool_name; do
         [[ -z "${pool_name}" ]] && continue
         pool_path=$(virsh --connect "${LIBVIRT_URI}" pool-dumpxml "${pool_name}" 2>/dev/null \
-          | sed -n '/<target>/,/<\/target>/s:.*<path>\(.*\)</path>.*:\1:p' | head -n1 || true)
+          | sed -n '/<target>/,/<\/target>/s:.*<path>\(.*\)</path>.*:\1:p' | head -n1 | xargs || true)
+        pool_path="${pool_path%/}"
         if [[ -n "${pool_path}" ]]; then
           echo "${pool_name}|${pool_path}"
         fi

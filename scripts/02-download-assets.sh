@@ -63,6 +63,7 @@ if [[ ! -f "${BASE_QCOW2}" ]]; then
 
   echo "${QCOW_SHA}  ${QCOW_XZ}" | sha256sum -c -
   info "Decompressing FCOS base image to ${BASE_QCOW2}..."
+  sudo mkdir -p "$(dirname "${BASE_QCOW2}")"
   xz -dc "${QCOW_XZ}" | sudo tee "${BASE_QCOW2}" >/dev/null
   sudo chmod 0644 "${BASE_QCOW2}"
   ok "FCOS base image ready at ${BASE_QCOW2}"
@@ -92,6 +93,7 @@ if [[ "${TOPOLOGY}" == "sno" ]]; then
     info "Downloading Fedora CoreOS live ISO for SNO..."
     curl -fSL "${ISO_URL}" -o "${WORK_DIR}/downloads/fcos-live.iso"
     echo "${ISO_SHA}  ${WORK_DIR}/downloads/fcos-live.iso" | sha256sum -c -
+    sudo mkdir -p "$(dirname "${LIVE_ISO}")"
     sudo cp "${WORK_DIR}/downloads/fcos-live.iso" "${LIVE_ISO}"
     sudo chmod 0644 "${LIVE_ISO}"
     ok "FCOS live ISO ready at ${LIVE_ISO}"
