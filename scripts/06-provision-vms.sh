@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+require_topology
+
+# Pick best available os-variant
+OS_VARIANT="fedora-unknown"
+if command -v osinfo-query >/dev/null 2>&1; then
+  if osinfo-query os --fields=short-id 2>/dev/null | grep -qx "fedora-coreos-stable"; then
+    OS_VARIANT="fedora-coreos-stable"
+  fi
+fi
+
+info "Provisioning libvirt VMs (os-variant=${OS_VARIANT})..."
+
+while read -r name role ip mac vcpu ram_mb disk_gb; do
+  domain="$(vm_name "${name}")"
+  overlay="${LIBVIRT_POOL_DIR}/${CLUSTER_NAME}-${name}.qcow2"
+  ign_path="${LIBVIRT_POOL_DIR}/ignition/${name}.ign"
+
+  [[ -f "${overlay}" ]] || die "Overlay not found: ${overlay}. Run 'make overlays' first."
+  [[ -f "${ign_path}" ]] || die "Ignition file not found: ${ign_path}. Run 'make ignition' first."
+
+  if virsh --connect "${LIBVIRT_URI}" dominfo "${domain}" >/dev/null 2>&1; then
+    warn "VM '${domain}' already exists; skipping creation."
+    continue
+  fi
+
+  if [[ "${TOPOLOGY}" == "sno" ]]; then
+    SNO_ISO="${LIBVIRT_POOL_DIR}/fcos-sno.iso"
+    [[ -f "${SNO_ISO}" ]] || die "SNO ISO not found: ${SNO_ISO}"
+    info "Creating SNO VM '${domain}' (${vcpu} vCPU, ${ram_mb} MB RAM, ${disk_gb}G overlay)..."
+    virt-install \
+      --connect "${LIBVIRT_URI}" \
+      --name "${domain}" \
+      --vcpus "${vcpu}" \
+      --memory "${ram_mb}" \
+      --disk "path=${overlay},format=qcow2,bus=virtio" \
+      --cdrom "${SNO_ISO}" \
+      --boot hd,cdrom \
+      --network "network=${NET_NAME},mac=${mac},model=virtio" \
+      --os-variant "${OS_VARIANT}" \
+      --graphics none \
+      --console pty,target_type=serial \
+      --noautoconsole
+  else
+    info "Creating VM '${domain}' (${role}, ${ip}, ${vcpu} vCPU, ${ram_mb} MB RAM, ${disk_gb}G overlay)..."
+    virt-install \
+      --connect "${LIBVIRT_URI}" \
+      --name "${domain}" \
+      --vcpus "${vcpu}" \
+      --memory "${ram_mb}" \
+      --disk "path=${overlay},format=qcow2,bus=virtio" \
+      --network "network=${NET_NAME},mac=${mac},model=virtio" \
+      --os-variant "${OS_VARIANT}" \
+      --import \
+      --graphics none \
+      --console pty,target_type=serial \
+      --qemu-commandline="-fw_cfg name=opt/com.coreos/config,file=${ign_path}" \
+      --noautoconsole
+  fi
+
+  ok "Provisioned and started '${domain}'"
+done < <(get_nodes)
