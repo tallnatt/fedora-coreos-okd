@@ -150,6 +150,18 @@ backend okd_ingress_https_be
 ${INGRESS_HTTPS_SERVERS}
 EOF
 
+  if [[ ! -f "${WORK_DIR}/.rollback.env" ]]; then
+    HAPROXY_WAS_ACTIVE="false"
+    HAPROXY_WAS_ENABLED="false"
+    systemctl is-active --quiet haproxy 2>/dev/null && HAPROXY_WAS_ACTIVE="true"
+    systemctl is-enabled --quiet haproxy 2>/dev/null && HAPROXY_WAS_ENABLED="true"
+    {
+      echo "HAPROXY_MODIFIED=true"
+      echo "HAPROXY_WAS_ACTIVE=${HAPROXY_WAS_ACTIVE}"
+      echo "HAPROXY_WAS_ENABLED=${HAPROXY_WAS_ENABLED}"
+    } >> "${WORK_DIR}/.rollback.env"
+  fi
+
   sudo cp "${WORK_DIR}/haproxy.cfg" /etc/haproxy/haproxy.cfg
   # Allow HAProxy to bind to the libvirt bridge IP on SELinux-enabled hosts
   if command -v setsebool >/dev/null 2>&1; then
@@ -163,8 +175,16 @@ fi
 # Open firewalld ports if firewalld is active
 if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
   info "Configuring firewalld rules for libvirt zone..."
+  ADDED_PORTS=()
   for port in 6443/tcp 22623/tcp 80/tcp 443/tcp 53/udp 53/tcp; do
-    sudo firewall-cmd --zone=libvirt --add-port="${port}" --permanent >/dev/null 2>&1 || true
+    if ! sudo firewall-cmd --zone=libvirt --query-port="${port}" >/dev/null 2>&1; then
+      if sudo firewall-cmd --zone=libvirt --add-port="${port}" --permanent >/dev/null 2>&1; then
+        ADDED_PORTS+=("${port}")
+      fi
+    fi
   done
-  sudo firewall-cmd --reload >/dev/null 2>&1 || true
+  if (( ${#ADDED_PORTS[@]} > 0 )); then
+    echo "FIREWALLD_ADDED_PORTS=\"${ADDED_PORTS[*]}\"" >> "${WORK_DIR}/.rollback.env"
+    sudo firewall-cmd --reload >/dev/null 2>&1 || true
+  fi
 fi

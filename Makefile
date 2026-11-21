@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 SCRIPTS_DIR := $(CURDIR)/scripts
 
-.PHONY: help configure-cluster check-deps select-topology select-network configure-nodes download network ignition overlays vms finish install status destroy
+.PHONY: help configure-cluster check-deps select-topology select-network configure-nodes download network ignition overlays vms finish install status destroy rollback
 
 help: ## Show available targets
 	@echo "OKD on Fedora CoreOS (libvirt) Automation"
@@ -56,5 +56,8 @@ status: ## Show libvirt VM status and OKD cluster node/operator status
 		KUBECONFIG="$(CURDIR)/work/okd/auth/kubeconfig" oc get co || true; \
 	fi
 
-destroy: ## Destroy all cluster VMs, qcow2 overlays, libvirt network, and generated artifacts
+destroy: ## Destroy cluster VMs, overlays, and network (preserves cached base images/tools)
 	@$(SCRIPTS_DIR)/destroy.sh
+
+rollback: ## Full rollback: delete cluster, remove cached images/tools, and restore host config
+	@$(SCRIPTS_DIR)/rollback.sh

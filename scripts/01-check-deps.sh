@@ -110,6 +110,9 @@ if (( ${#MISSING_CMDS[@]} > 0 )); then
       ;;
   esac
 
+  mkdir -p "${WORK_DIR}"
+  printf '%s\n' "${MISSING_PKGS[@]}" > "${WORK_DIR}/.installed_pkgs"
+
   if command -v systemctl >/dev/null 2>&1; then
     sudo systemctl enable --now libvirtd >/dev/null 2>&1 || true
   fi

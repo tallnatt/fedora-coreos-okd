@@ -44,11 +44,14 @@ Run on a Linux host with KVM/libvirt installed and `sudo` access:
    make status
    ```
 
-4. **Tear down the cluster:**
+4. **Tear down or roll back the cluster:**
    ```bash
+   # Remove cluster VMs, overlays, and network (keeps cached base FCOS image & tools):
    make destroy
-   # Pass CLEAN_BASE=1 to also remove the cached fcos-base.qcow2 image:
-   CLEAN_BASE=1 make destroy
+
+   # Full rollback: delete cluster, remove cached images/tools, and restore host config
+   # (/etc/hosts, haproxy.cfg & service state, firewalld rules, pool directory):
+   make rollback
    ```
 
 ## Topology Options
