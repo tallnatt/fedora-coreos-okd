@@ -6,7 +6,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 info "Checking required host dependencies..."
 
-REQUIRED_CMDS=(virsh virt-install qemu-img haproxy jq curl xz sha256sum)
+REQUIRED_CMDS=(virsh virt-install qemu-img jq curl xz sha256sum)
+if [[ "${TOPOLOGY:-}" != "sno" && "${USE_HAPROXY:-true}" == "true" ]]; then
+  REQUIRED_CMDS+=(haproxy)
+fi
 MISSING_CMDS=()
 
 for cmd in "${REQUIRED_CMDS[@]}"; do

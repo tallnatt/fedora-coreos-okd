@@ -45,7 +45,7 @@ vms: ## Provision and boot Fedora CoreOS VMs in libvirt
 finish: ## Wait for bootstrap, destroy bootstrap VM, approve CSRs, and wait for install-complete
 	@$(SCRIPTS_DIR)/07-finish-install.sh
 
-install: configure-cluster check-deps select-topology select-network configure-nodes download network ignition overlays vms finish ## Run the full end-to-end OKD installation
+install: configure-cluster select-topology select-network configure-nodes check-deps download network ignition overlays vms finish ## Run the full end-to-end OKD installation
 
 status: ## Show libvirt VM status and OKD cluster node/operator status
 	@virsh --connect "$${LIBVIRT_URI:-qemu:///system}" list --all
