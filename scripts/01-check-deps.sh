@@ -125,8 +125,8 @@ if ! virsh --connect "${LIBVIRT_URI}" version >/dev/null 2>&1; then
   die "Cannot connect to libvirt at '${LIBVIRT_URI}'. Ensure libvirtd is running and your user has permission (libvirt group or sudo)."
 fi
 
-if [[ ! -f "${SSH_PUB_KEY_PATH}" ]]; then
-  die "SSH public key not found at '${SSH_PUB_KEY_PATH}'. Generate one with 'ssh-keygen -t ed25519' or set SSH_PUB_KEY_PATH in cluster.env."
+if ! validate_ssh_pub_key "${SSH_PUB_KEY_PATH}"; then
+  die "SSH public key at '${SSH_PUB_KEY_PATH}' is missing or invalid. Generate one with 'ssh-keygen -t ed25519' or set SSH_PUB_KEY_PATH in cluster.env."
 fi
 
 for tool in openshift-install oc butane; do

@@ -30,8 +30,17 @@ else
   read -rp "  Architecture [recommended: ${ARCH}]: " in_arch
   ARCH="${in_arch:-${ARCH}}"
 
-  read -rp "  SSH public key path [recommended: ${SSH_PUB_KEY_PATH}]: " in_ssh
-  SSH_PUB_KEY_PATH="${in_ssh:-${SSH_PUB_KEY_PATH}}"
+  while true; do
+    read -rp "  SSH public key path [recommended: ${SSH_PUB_KEY_PATH}]: " in_ssh
+    candidate_ssh="${in_ssh:-${SSH_PUB_KEY_PATH}}"
+    # Expand leading ~ if user typed it
+    candidate_ssh="${candidate_ssh/#\~/${HOME}}"
+    if validate_ssh_pub_key "${candidate_ssh}"; then
+      SSH_PUB_KEY_PATH="${candidate_ssh}"
+      break
+    fi
+    warn "Invalid or missing SSH public key at '${candidate_ssh}'."
+  done
 
   read -rp "  Pull secret file path (optional for OKD) [${PULL_SECRET_PATH:-none}]: " in_pull
   if [[ -n "${in_pull}" ]]; then

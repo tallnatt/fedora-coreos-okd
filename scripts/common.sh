@@ -68,6 +68,16 @@ require_network_mode() {
   esac
 }
 
+validate_ssh_pub_key() {
+  local key_path="$1"
+  [[ -f "${key_path}" && -s "${key_path}" ]] || return 1
+  if command -v ssh-keygen >/dev/null 2>&1; then
+    ssh-keygen -l -f "${key_path}" >/dev/null 2>&1
+    return $?
+  fi
+  grep -Eq '^(ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[[:space:]]+[A-Za-z0-9+/=]+' "${key_path}"
+}
+
 # Prints node records for the selected topology:
 #   <name> <role> <ip> <mac> <vm_name> <overlay_path> <vcpu> <ram_mb> <disk_gb>
 get_nodes() {
