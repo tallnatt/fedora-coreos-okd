@@ -27,11 +27,8 @@ else
       | jq -r '.tag_name // empty' 2>/dev/null || true)
     [[ -n "${latest_okd}" ]] && OKD_VERSION="${latest_okd}"
   else
-    warn "Host CPU does not support x86-64-v3 (x86-64-v2 only). OKD 5.0+ requires x86-64-v3; selecting OKD 4.x."
+    warn "Host CPU does not support x86-64-v3 (x86-64-v2 only). OKD 4.20+ and 5.x require x86-64-v3; selecting OKD 4.19 (x86-64-v2)."
     OKD_VERSION="${OKD4_FALLBACK_VERSION}"
-    latest_okd4=$(curl -fsSL --max-time 5 "https://api.github.com/repos/okd-project/okd/releases?per_page=50" 2>/dev/null \
-      | jq -r '[.[] | select(.prerelease == false and (.tag_name | startswith("4.")))][0].tag_name // empty' 2>/dev/null || true)
-    [[ -n "${latest_okd4}" ]] && OKD_VERSION="${latest_okd4}"
   fi
 
   read -rp "  OKD version [recommended: ${OKD_VERSION}]: " in_okd
