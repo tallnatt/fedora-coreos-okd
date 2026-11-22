@@ -9,6 +9,9 @@ mkdir -p "${BIN_DIR}" "${WORK_DIR}/downloads"
 sudo mkdir -p "${LIBVIRT_POOL_DIR}"
 
 # 1. Download openshift-install and oc if missing
+if [[ "${OKD_VERSION}" == 5.* ]] && ! host_supports_x86_64_v3; then
+  warn "OKD ${OKD_VERSION} requires x86-64-v3 CPU instructions, which this host does not appear to support (use OKD 4.x such as ${OKD4_FALLBACK_VERSION})."
+fi
 if ! command -v openshift-install >/dev/null 2>&1 || ! command -v oc >/dev/null 2>&1; then
   info "Downloading OKD ${OKD_VERSION} installer and client tools..."
   case "${ARCH}" in

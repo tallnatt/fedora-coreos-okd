@@ -87,6 +87,32 @@ get_ssh_pub_key_fingerprint() {
   fi
 }
 
+# Returns 0 if host CPU supports x86-64-v3 (required for OKD 5.0+), 1 otherwise.
+host_supports_x86_64_v3() {
+  [[ "$(uname -m)" != "x86_64" ]] && return 0
+  local ld
+  for ld in /lib64/ld-linux-x86-64.so.2 /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2; do
+    if [[ -x "${ld}" ]]; then
+      if "${ld}" --help 2>/dev/null | grep -qE 'x86-64-v3[[:space:]]+\(supported'; then
+        return 0
+      fi
+      # If ld.so explicitly reports microarchitecture levels and v3 is absent, it's not supported
+      if "${ld}" --help 2>/dev/null | grep -q 'x86-64-v2'; then
+        return 1
+      fi
+    fi
+  done
+
+  # Fallback: check /proc/cpuinfo flags for x86-64-v3 ISA
+  local flags
+  flags=$(grep -m1 '^flags' /proc/cpuinfo 2>/dev/null || true)
+  for req in avx avx2 bmi1 bmi2 f16c fma movbe xsave; do
+    [[ " ${flags} " == *" ${req} "* ]] || return 1
+  done
+  [[ " ${flags} " == *" abm "* || " ${flags} " == *" lzcnt "* ]] || return 1
+  return 0
+}
+
 # Prints node records for the selected topology:
 #   <name> <role> <ip> <mac> <vm_name> <overlay_path> <vcpu> <ram_mb> <disk_gb>
 get_nodes() {
