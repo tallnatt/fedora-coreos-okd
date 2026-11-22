@@ -48,10 +48,14 @@ if ! command -v butane >/dev/null 2>&1; then
   ok "Installed butane into ${BIN_DIR}/butane"
 fi
 
-# 3. Fetch Fedora CoreOS stream metadata
-STREAM_JSON="${WORK_DIR}/downloads/fcos-${FCOS_STREAM}.json"
-info "Fetching Fedora CoreOS '${FCOS_STREAM}' stream metadata..."
-curl -fsSL "https://builds.coreos.fedoraproject.org/streams/${FCOS_STREAM}.json" -o "${STREAM_JSON}"
+# 3. Fetch CoreOS stream metadata (prefer openshift-install's matched stream)
+STREAM_JSON="${WORK_DIR}/downloads/coreos-stream.json"
+if openshift-install coreos print-stream-json > "${STREAM_JSON}" 2>/dev/null && jq -e '.architectures' "${STREAM_JSON}" >/dev/null 2>&1; then
+  ok "Using CoreOS stream metadata from openshift-install (${OKD_VERSION})"
+else
+  info "Fetching Fedora CoreOS '${FCOS_STREAM}' stream metadata..."
+  curl -fsSL "https://builds.coreos.fedoraproject.org/streams/${FCOS_STREAM}.json" -o "${STREAM_JSON}"
+fi
 
 # 4. Download and decompress FCOS base qcow2 image (used as backing file for node overlays)
 BASE_QCOW2="${LIBVIRT_MEDIA_DIR}/fcos-base.qcow2"
