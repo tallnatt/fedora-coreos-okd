@@ -57,25 +57,50 @@ else
   curl -fsSL "https://builds.coreos.fedoraproject.org/streams/${FCOS_STREAM}.json" -o "${STREAM_JSON}"
 fi
 
-# 4. Download and decompress FCOS base qcow2 image (used as backing file for node overlays)
+# 4. Download and decompress CoreOS base qcow2 image (used as backing file for node overlays)
 BASE_QCOW2="${LIBVIRT_MEDIA_DIR}/fcos-base.qcow2"
 if [[ ! -f "${BASE_QCOW2}" ]]; then
-  QCOW_URL=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"qcow2.xz\"].disk.location" "${STREAM_JSON}")
-  QCOW_SHA=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"qcow2.xz\"].disk.sha256" "${STREAM_JSON}")
-  [[ -n "${QCOW_URL}" && "${QCOW_URL}" != "null" ]] || die "Could not find FCOS qcow2.xz URL for ${ARCH}"
+  QCOW_FMT=""
+  QCOW_URL=""
+  QCOW_SHA=""
+  for fmt in "qcow2.xz" "qcow2.gz" "qcow2"; do
+    url=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"${fmt}\"].disk.location // empty" "${STREAM_JSON}")
+    if [[ -n "${url}" ]]; then
+      QCOW_FMT="${fmt}"
+      QCOW_URL="${url}"
+      QCOW_SHA=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"${fmt}\"].disk.sha256 // empty" "${STREAM_JSON}")
+      break
+    fi
+  done
 
-  QCOW_XZ="${WORK_DIR}/downloads/fcos-base.qcow2.xz"
-  info "Downloading Fedora CoreOS QEMU base image..."
-  curl -fSL "${QCOW_URL}" -o "${QCOW_XZ}"
+  # If openshift-install stream metadata doesn't include qemu qcow2, fall back to FCOS stream
+  if [[ -z "${QCOW_URL}" ]]; then
+    warn "No qemu qcow2 artifact in ${OKD_VERSION} stream; falling back to Fedora CoreOS '${FCOS_STREAM}' qcow2..."
+    FCOS_JSON="${WORK_DIR}/downloads/fcos-${FCOS_STREAM}.json"
+    curl -fsSL "https://builds.coreos.fedoraproject.org/streams/${FCOS_STREAM}.json" -o "${FCOS_JSON}"
+    QCOW_FMT="qcow2.xz"
+    QCOW_URL=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"qcow2.xz\"].disk.location // empty" "${FCOS_JSON}")
+    QCOW_SHA=$(jq -r ".architectures.${ARCH}.artifacts.qemu.formats[\"qcow2.xz\"].disk.sha256 // empty" "${FCOS_JSON}")
+  fi
 
-  echo "${QCOW_SHA}  ${QCOW_XZ}" | sha256sum -c -
-  info "Decompressing FCOS base image to ${BASE_QCOW2}..."
+  [[ -n "${QCOW_URL}" ]] || die "Could not find CoreOS qcow2 URL for ${ARCH}"
+
+  QCOW_DL="${WORK_DIR}/downloads/fcos-base.${QCOW_FMT}"
+  info "Downloading CoreOS QEMU base image (${QCOW_FMT})..."
+  curl -fSL "${QCOW_URL}" -o "${QCOW_DL}"
+
+  [[ -n "${QCOW_SHA}" ]] && echo "${QCOW_SHA}  ${QCOW_DL}" | sha256sum -c -
+  info "Preparing CoreOS base image at ${BASE_QCOW2}..."
   sudo mkdir -p "$(dirname "${BASE_QCOW2}")"
-  xz -dc "${QCOW_XZ}" | sudo tee "${BASE_QCOW2}" >/dev/null
+  case "${QCOW_FMT}" in
+    qcow2.xz) xz -dc "${QCOW_DL}" | sudo tee "${BASE_QCOW2}" >/dev/null ;;
+    qcow2.gz) gzip -dc "${QCOW_DL}" | sudo tee "${BASE_QCOW2}" >/dev/null ;;
+    qcow2)    sudo cp "${QCOW_DL}" "${BASE_QCOW2}" ;;
+  esac
   sudo chmod 0644 "${BASE_QCOW2}"
-  ok "FCOS base image ready at ${BASE_QCOW2}"
+  ok "CoreOS base image ready at ${BASE_QCOW2}"
 else
-  ok "FCOS base image already exists at ${BASE_QCOW2}"
+  ok "CoreOS base image already exists at ${BASE_QCOW2}"
 fi
 
 # 5. For SNO, also download FCOS live ISO and coreos-installer
