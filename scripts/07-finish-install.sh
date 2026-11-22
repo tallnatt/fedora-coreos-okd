@@ -55,6 +55,30 @@ openshift-install wait-for install-complete --dir="${OKD_DIR}" --log-level=info
 
 cleanup_csr_loop
 
+if [[ -n "${KUBEADMIN_PASSWORD:-}" ]]; then
+  info "Applying custom kubeadmin password..."
+  KUBEADMIN_HASH=""
+  if command -v htpasswd >/dev/null 2>&1; then
+    KUBEADMIN_HASH=$(htpasswd -bnBC 10 "" "${KUBEADMIN_PASSWORD}" | tr -d ':\n')
+  elif command -v python3 >/dev/null 2>&1; then
+    KUBEADMIN_HASH=$(python3 -c 'import sys, bcrypt; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt(rounds=10, prefix=b"2y")).decode())' "${KUBEADMIN_PASSWORD}" 2>/dev/null || true)
+  fi
+
+  if [[ -n "${KUBEADMIN_HASH}" ]]; then
+    if oc create secret generic kubeadmin -n kube-system \
+      --from-literal=kubeadmin="${KUBEADMIN_HASH}" \
+      --dry-run=client -o yaml | oc replace -f - >/dev/null; then
+      printf '%s' "${KUBEADMIN_PASSWORD}" > "${OKD_DIR}/auth/kubeadmin-password"
+      chmod 0600 "${OKD_DIR}/auth/kubeadmin-password"
+      ok "Updated kubeadmin password in cluster and ${OKD_DIR}/auth/kubeadmin-password."
+    else
+      warn "Failed to update kubeadmin secret; keeping auto-generated password."
+    fi
+  else
+    warn "Neither 'htpasswd' nor Python 'bcrypt' is available to hash kubeadmin password; keeping auto-generated password."
+  fi
+fi
+
 echo ""
 echo "============================================================"
 echo " OKD Cluster Installation Complete!"

@@ -131,6 +131,25 @@ else
 
   LIBVIRT_POOL_DIR="$(select_pool_dir "Libvirt VM overlay pool / directory" "${CLUSTER_NAME}" "/var/lib/libvirt/images/${CLUSTER_NAME}")"
   LIBVIRT_MEDIA_DIR="$(select_pool_dir "Libvirt shared media pool / directory (base FCOS image & ISOs)" "okd-media" "/var/lib/libvirt/images/okd-media")"
+
+  echo ""
+  KUBEADMIN_PASSWORD="${KUBEADMIN_PASSWORD:-}"
+  while true; do
+    read -rsp "  Custom kubeadmin password (leave blank to auto-generate): " pw1
+    echo ""
+    if [[ -z "${pw1}" ]]; then
+      KUBEADMIN_PASSWORD=""
+      break
+    fi
+    read -rsp "  Confirm kubeadmin password: " pw2
+    echo ""
+    if [[ "${pw1}" == "${pw2}" ]]; then
+      KUBEADMIN_PASSWORD="${pw1}"
+      ok "Custom kubeadmin password set."
+      break
+    fi
+    warn "Passwords do not match. Please try again."
+  done
 fi
 
 cat > "${WORK_DIR}/.cluster.env" <<EOF
@@ -144,6 +163,8 @@ PULL_SECRET_PATH="${PULL_SECRET_PATH}"
 LIBVIRT_URI="${LIBVIRT_URI}"
 LIBVIRT_POOL_DIR="${LIBVIRT_POOL_DIR}"
 LIBVIRT_MEDIA_DIR="${LIBVIRT_MEDIA_DIR}"
+KUBEADMIN_PASSWORD=$(printf '%q' "${KUBEADMIN_PASSWORD:-}")
 EOF
+chmod 0600 "${WORK_DIR}/.cluster.env"
 
 ok "Cluster configuration saved to ${WORK_DIR}/.cluster.env (${CLUSTER_NAME}.${BASE_DOMAIN})"
