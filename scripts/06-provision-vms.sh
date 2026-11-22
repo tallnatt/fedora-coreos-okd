@@ -41,6 +41,7 @@ while read -r name role ip mac domain overlay vcpu ram_mb disk_gb; do
       --connect "${LIBVIRT_URI}" \
       --name "${domain}" \
       --vcpus "${vcpu}" \
+      --cpu host-passthrough \
       --memory "${ram_mb}" \
       --disk "path=${overlay},format=qcow2,bus=virtio" \
       --cdrom "${SNO_ISO}" \
@@ -56,6 +57,7 @@ while read -r name role ip mac domain overlay vcpu ram_mb disk_gb; do
       --connect "${LIBVIRT_URI}" \
       --name "${domain}" \
       --vcpus "${vcpu}" \
+      --cpu host-passthrough \
       --memory "${ram_mb}" \
       --disk "path=${overlay},format=qcow2,bus=virtio" \
       --network "${NET_ARG_BASE},mac=${mac},model=virtio" \
